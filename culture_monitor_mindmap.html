@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Culture Monitor — Territórios & Tópicos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,700;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --yellow:#EBFF00; --black:#0D0D0D; --mid:#6B6B6B; --light:#E4E4E0; --bg:#FFFFFF; --panel-w:340px; }
+html,body { height:100%; background:var(--bg); font-family:'EB Garamond',Georgia,serif; color:var(--black); overflow:hidden; }
+.app { display:grid; grid-template-columns:1fr var(--panel-w); grid-template-rows:auto 1fr; height:100vh; }
+
+header { grid-column:1/3; display:flex; align-items:center; justify-content:space-between; padding:14px 32px; border-bottom:1px solid var(--black); flex-shrink:0; }
+.logo { font-size:13px; font-style:italic; color:var(--mid); }
+.hc { display:flex; align-items:baseline; gap:18px; }
+.ht { font-size:19px; font-weight:700; letter-spacing:-0.02em; }
+.hs { font-size:13px; color:var(--mid); font-style:italic; }
+.stats { display:flex; }
+.stat { display:flex; flex-direction:column; align-items:center; padding:0 16px; border-left:1px solid var(--light); }
+.stat:first-child { border-left:none; }
+.sn { font-family:'DM Mono',monospace; font-size:15px; line-height:1; }
+.sl { font-family:'DM Mono',monospace; font-size:8px; color:var(--mid); text-transform:uppercase; letter-spacing:.12em; margin-top:3px; }
+
+.map-area { grid-column:1; grid-row:2; position:relative; overflow:hidden; }
+canvas { display:block; width:100%; height:100%; }
+.map-hint { position:absolute; bottom:16px; left:50%; transform:translateX(-50%); font-family:'DM Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.16em; color:#C8C8C4; pointer-events:none; transition:opacity .4s; white-space:nowrap; }
+.map-hint.hidden { opacity:0; }
+.nav-page{display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--mid);text-decoration:none;padding:7px 14px;border:1px solid var(--light);transition:all .15s;cursor:pointer;background:none;white-space:nowrap}
+.nav-page:hover{border-color:var(--black);color:var(--black);background:var(--yellow)}
+
+.panel { grid-column:2; grid-row:2; border-left:1px solid var(--black); display:flex; flex-direction:column; background:var(--bg); overflow:hidden; position:relative; }
+.panel-empty { display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; height:100%; padding:28px 26px; }
+.pe-label { font-family:'DM Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.14em; color:var(--light); margin-bottom:10px; }
+.pe-text { font-size:15px; color:var(--light); font-style:italic; line-height:1.5; max-width:200px; }
+
+.view-topics,.view-keywords { display:none; flex-direction:column; height:100%; }
+.view-topics.active,.view-keywords.active { display:flex; }
+
+.ph { padding:18px 26px 14px; border-bottom:1px solid var(--light); flex-shrink:0; position:relative; }
+.ph-tag { font-family:'DM Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.14em; color:var(--mid); margin-bottom:7px; }
+.ph-name { font-size:18px; font-weight:700; letter-spacing:-0.02em; line-height:1.2; margin-bottom:10px; }
+.ph-meta { display:flex; align-items:center; gap:8px; }
+.badge { background:var(--yellow); color:var(--black); font-family:'DM Mono',monospace; font-size:11px; font-weight:500; padding:3px 9px; }
+.badge-text { font-size:13px; color:var(--mid); font-style:italic; }
+.close-btn { position:absolute; top:16px; right:22px; background:none; border:none; cursor:pointer; font-family:'DM Mono',monospace; font-size:18px; color:var(--light); transition:color .15s; padding:0; line-height:1; }
+.close-btn:hover { color:var(--black); }
+
+.back-btn { display:flex; align-items:center; gap:8px; padding:11px 26px; border-bottom:1px solid var(--light); background:none; border-left:none; border-right:none; border-top:none; width:100%; cursor:pointer; font-family:'DM Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.12em; color:var(--mid); transition:all .15s; flex-shrink:0; text-align:left; }
+.back-btn:hover { background:#FAFAF8; color:var(--black); }
+.back-btn span { font-size:13px; }
+
+.panel-body { flex:1; overflow-y:auto; }
+.panel-body::-webkit-scrollbar { width:3px; }
+.panel-body::-webkit-scrollbar-thumb { background:var(--light); }
+
+.topic-row { display:flex; align-items:baseline; gap:14px; padding:11px 26px; border-bottom:1px solid var(--light); cursor:pointer; transition:background .1s; }
+.topic-row:hover { background:#F7F7F5; }
+.topic-row:hover .topic-arr { opacity:1; }
+.topic-row:last-child { border-bottom:none; }
+.t-num { font-family:'DM Mono',monospace; font-size:10px; color:var(--light); min-width:22px; flex-shrink:0; }
+.t-name { font-size:14px; color:var(--black); line-height:1.3; flex:1; }
+.topic-arr { font-size:12px; color:var(--mid); opacity:0; transition:opacity .15s; flex-shrink:0; }
+
+.kw-topic-name { font-size:12px; color:var(--mid); font-style:italic; margin-top:4px; line-height:1.3; }
+.kw-body { flex:1; overflow-y:auto; padding:18px 26px; display:flex; flex-wrap:wrap; align-content:flex-start; gap:7px; }
+.kw-body::-webkit-scrollbar { width:3px; }
+.kw-body::-webkit-scrollbar-thumb { background:var(--light); }
+.kw-chip { font-family:'DM Mono',monospace; font-size:10px; padding:5px 10px; border:1px solid var(--light); color:var(--black); background:var(--bg); letter-spacing:.02em; line-height:1.4; transition:all .12s; cursor:default; }
+.kw-chip:hover { border-color:var(--black); background:var(--black); color:var(--yellow); }
+.kw-empty { font-size:14px; color:var(--light); font-style:italic; padding:20px 0; }
+
+.panel-nav { border-top:1px solid var(--light); display:flex; flex-shrink:0; }
+.nav-btn { flex:1; background:none; border:none; border-right:1px solid var(--light); font-family:'DM Mono',monospace; font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--mid); padding:12px 0; cursor:pointer; transition:all .15s; }
+.nav-btn:last-child { border-right:none; }
+.nav-btn:hover { background:var(--yellow); color:var(--black); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="logo">ℓiⱴε the agency</span>
+    <div class="hc">
+      <span class="ht">Culture Monitor</span>
+      <span class="hs">Diretório de Territórios & Tópicos</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="sn">16</span><span class="sl">Territórios</span></div>
+      <div class="stat"><span class="sn">167</span><span class="sl">Tópicos</span></div>
+      <div class="stat"><span class="sn">700+</span><span class="sl">Contextos</span></div>
+    </div>
+    <a class="nav-page" id="navToContextos" href="culture_monitor_contextos.html">Contextos 2026 →</a>
+  </header>
+
+  <div class="map-area" id="mapArea">
+    <canvas id="mm"></canvas>
+    <div class="map-hint" id="hint">← clique em um território para explorar →</div>
+  </div>
+
+  <aside class="panel">
+    <div class="panel-empty" id="viewEmpty">
+      <div class="pe-label">Nenhum selecionado</div>
+      <div class="pe-text">Selecione um território no mapa para explorar os tópicos.</div>
+    </div>
+    <div class="view-topics" id="viewTopics">
+      <div class="ph">
+        <div class="ph-tag" id="tTag"></div>
+        <div class="ph-name" id="tName"></div>
+        <div class="ph-meta"><span class="badge" id="tBadge"></span><span class="badge-text">tópicos mapeados</span></div>
+        <button class="close-btn" id="closeTopics">×</button>
+      </div>
+      <div class="panel-body" id="topicList"></div>
+      <div class="panel-nav">
+        <button class="nav-btn" id="navPrev">← anterior</button>
+        <button class="nav-btn" id="navNext">próximo →</button>
+      </div>
+    </div>
+    <div class="view-keywords" id="viewKeywords">
+      <div class="ph">
+        <div class="ph-tag" id="kTag"></div>
+        <div class="ph-name" id="kName"></div>
+        <div class="kw-topic-name" id="kTerritory"></div>
+        <button class="close-btn" id="closeKw">×</button>
+      </div>
+      <button class="back-btn" id="backBtn"><span>←</span> voltar para tópicos</button>
+      <div class="kw-body" id="kwBody"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const KW_DATA = {"Esportes": {"Futebol": ["futebol", "copa do mundo", "brasileirão", "champions league", "libertadores", "fifa", "seleção brasileira", "gol", "craque", "atacante", "zagueiro", "técnico", "VAR", "torcida", "estádio", "campeonato", "final", "jogo", "camisa 10", "drible"], "Vôlei": ["vôlei", "superliga", "seleção brasileira", "vôlei de praia", "saque", "bloqueio", "levantador", "atacante", "ponto", "set", "campeonato", "federação", "CBV", "mundial", "olímpico", "técnico", "time", "quadra", "rede", "medalha"], "Basquete (NBA, NBB)": ["basquete", "NBA", "NBB", "cesta", "arremesso", "enterrada", "drible", "defesa", "armador", "ala", "pivô", "time", "jogo", "campeonato", "playoff", "final", "técnico", "torcida", "uniforme", "estatísticas"], "MMA (UFC, eventos nacionais)": ["MMA", "UFC", "cinturão", "luta", "lutador", "octógono", "pesagem", "nocautes", "submission", "card principal", "evento", "combate", "artes marciais", "jiu-jitsu", "muay thai", "wrestling", "treino", "vitória", "defesa", "cinturão interino"], "Boxe": ["boxe", "ringue", "nocautes", "jab", "direto", "cruzado", "uppercut", "luva", "corda", "cinturão", "peso-pena", "peso-pesado", "treino", "combate", "árbitro", "técnico", "campeonato", "título", "vitória", "derrota"], "Corrida de Rua & Maratonas": ["corrida", "maratona", "meia maratona", "5K", "10K", "pace", "chip", "largada", "chegada", "hidratação", "treino", "prova", "circuito", "atleta", "inscrição", "ranking", "kit atleta", "medalha", "camiseta", "prova oficial"], "Skate": ["skate", "manobra", "half pipe", "street", "park", "drop", "ollie", "flip", "grind", "campeonato", "atleta", "pista", "patrocinador", "vídeo", "evento", "ranking", "medalha", "olímpico", "mundial", "skatista"], "Surfe": ["surfe", "onda", "prancha", "tubo", "manobra", "campeonato", "WSL", "pico", "maré", "swell", "atleta", "prancha curta", "longboard", "aéreo", "remada", "drop", "campeonato mundial", "etapa", "ranking", "patrocinador"], "Fisiculturismo": ["fisiculturismo", "bodybuilding", "hipertrofia", "dieta", "treino", "pose", "competição", "campeonato", "categoria", "atleta", "pró", "amador", "massa muscular", "definição", "suplemento", "treino pesado", "corte", "bulking", "shape", "preparação"], "Esportes a Motor (F1, Stock Car, MotoGP, Rally)": ["fórmula 1", "stock car", "motogp", "rally", "corrida", "piloto", "escuderia", "equipe", "pódio", "volta rápida", "pole position", "grid", "box", "mecânico", "ultrapassagem", "bandeirada", "campeonato", "etapa", "motor", "pneu"], "Tênis": ["tênis", "raquete", "bola", "quadra", "grand slam", "wimbledon", "roland garros", "us open", "australian open", "atp", "wta", "saque", "forehand", "backhand", "game", "set", "match point", "torneio", "ranking", "atleta"], "Ciclismo de Estrada & Mountain Bike": ["ciclismo", "bike", "estrada", "mountain bike", "mtb", "trilha", "subida", "descida", "pelotão", "prova", "competição", "atleta", "capacete", "pneu", "transmissão", "tour de france", "giro d’italia", "campeonato", "treino", "ranking"], "CrossFit": ["crossfit", "wod", "treino", "barra", "kettlebell", "snatch", "clean", "jerk", "pull-up", "box jump", "competição", "games", "atleta", "coach", "força", "resistência", "corda", "mobilidade", "halter", "community"], "Esportes de Areia (futevôlei, beach tenis, vôlei de praia)": ["futevôlei", "beach tennis", "vôlei de praia", "areia", "rede", "saque", "cortada", "partida", "campeonato", "atleta", "dupla", "raquete", "bola", "quadra", "torneio", "final", "ranking", "evento", "medalha", "verão"], "Esportes de Endurance (triatlo, ultramaratonas)": ["endurance", "triatlo", "ironman", "ultramaratona", "resistência", "prova", "natação", "pedal", "corrida", "transição", "atleta", "tempo", "distância", "hidratação", "treino", "campeonato", "ranking", "performance", "desafio", "medalha"], "NFL (Futebol Americano)": ["nfl", "futebol americano", "super bowl", "touchdown", "quarterback", "wide receiver", "defesa", "ataque", "time", "jogo", "campeonato", "playoff", "técnico", "torcida", "estádio", "conferência", "divisão", "draft", "final", "pódio"], "Esportes Olímpicos": ["olimpíadas", "jogos olímpicos", "COI", "atleta olímpico", "medalha de ouro", "medalha de prata", "medalha de bronze", "recorde olímpico", "delegação", "abertura olímpica", "modalidades", "natação", "atletismo", "ginástica", "judô", "esgrima", "pódio", "competição", "ranking", "tocha olímpica", "cerimônia"], "Esportes Paralímpicos": ["paralimpíadas", "jogos paralímpicos", "atleta paralímpico", "medalha de ouro", "medalha de prata", "medalha de bronze", "recorde paralímpico", "bocha", "goalball", "natação paralímpica", "atletismo paralímpico", "ciclismo adaptado", "pódio", "competição", "classificação funcional", "ranking", "delegação", "CPB", "abertura paralímpica", "cerimônia"], "Outras modalidades": []}, "Música": {"Sertanejo": ["sertanejo", "sertanejo universitário", "modão", "dupla sertaneja", "viola", "moda de viola", "sertanejo raiz", "sertanejo romântico", "feminejo", "show sertanejo", "rodeio", "música sertaneja", "sucesso", "hit", "lançamento", "DVD", "live sertaneja", "turnê", "composição", "sertanejo pop"], "Funk": ["funk", "baile funk", "proibidão", "150 bpm", "MC", "batidão", "batida", "hit do verão", "brega funk", "funk consciente", "funk ostentação", "paredão", "trend funk", "coreografia funk", "remix funk", "funk carioca", "funk paulista", "funk mineiro", "DJ de funk", "lançamento funk"], "Pagode & Samba": ["samba", "pagode", "roda de samba", "bloco", "bateria", "escola de samba", "desfile", "carnaval", "samba enredo", "grupo de pagode", "pagode romântico", "cavaquinho", "pandeiro", "feijoada com samba", "quintal do pagode", "samba raiz", "samba rock", "compositor", "sambista", "intérprete"], "Pop Nacional": ["pop nacional", "música pop brasileira", "hit", "clipe pop", "show pop", "top 50 brasil", "artista pop", "pop mainstream", "refrão chiclete", "turnê pop", "lançamento pop", "pop romântico", "pop dançante", "chart pop", "pop comercial", "pop alternativo brasileiro", "festival pop", "live pop", "performance pop"], "Pop Internacional": ["pop internacional", "pop music", "billboard hot 100", "uk charts", "hit global", "clipe internacional", "turnê mundial", "artista pop", "diva pop", "boy band", "girl group", "refrão chiclete", "top global", "pop dance", "pop romântico", "single pop", "álbum pop", "estreia pop", "live internacional"], "Trap & Rap": ["trap", "rap nacional", "batalha de rima", "MC", "freestyle", "beat trap", "drill brasileiro", "flow", "rima", "trap funk", "single trap", "álbum de rap", "clipe de rap", "cypher", "gangsta rap brasileiro", "trend rap", "collab rap", "trap melódico", "mixtape rap", "selo independente"], "MPB": ["MPB", "música popular brasileira", "artista MPB", "composição MPB", "voz e violão", "festival MPB", "bossa nova", "samba MPB", "MPB contemporânea", "álbum MPB", "canção brasileira", "música de protesto", "melodia MPB", "harmonia MPB", "show MPB", "live MPB", "performance MPB", "gravadora MPB", "turnê MPB", "música autoral"], "Música Eletrônica (EDM, House, Techno)": ["música eletrônica", "EDM", "house", "techno", "trance", "deep house", "progressive", "festival eletrônico", "Tomorrowland", "Ultra Music", "DJ set", "remix", "track eletrônica", "drop", "rave", "pista de dança", "beat eletrônico", "lançamento eletrônico", "produção eletrônica", "vinil eletrônico"], "Rock Nacional": ["rock nacional", "banda brasileira", "rock BR", "festival de rock", "guitarra rock", "baixo", "bateria", "vocal", "show de rock", "rock alternativo brasileiro", "rock pop BR", "rock clássico brasileiro", "riffs", "solo", "música autoral", "lançamento rock", "cena indie rock BR", "rock underground", "rock mainstream", "letras de rock BR"], "Rock Internacional": ["rock internacional", "classic rock", "hard rock", "indie rock", "alternative rock", "metal", "guitarra", "solo de guitarra", "riff", "bateria", "vocal rock", "festival de rock", "turnê rock", "show internacional", "álbum de rock", "single rock", "banda internacional", "cena rock global", "lançamento rock"], "Forró & Piseiro": ["forró", "piseiro", "sanfona", "zabumba", "triângulo", "banda de forró", "cantor de piseiro", "festa de forró", "forró eletrônico", "forró universitário", "xote", "xaxado", "arrasta-pé", "quadrilha junina", "São João", "festa nordestina", "hit piseiro", "coreografia piseiro", "lançamento forró"], "Indie & Alternativo": ["indie", "alternativo", "indie rock", "indie pop", "música alternativa", "artista indie", "banda alternativa", "festival indie", "cena indie", "produção independente", "selo independente", "DIY music", "álbum indie", "single indie", "lançamento alternativo", "estética indie", "clipe alternativo", "visual alternativo", "voz indie"], "Drill & Grime": ["drill", "grime", "UK drill", "Chicago drill", "flow grime", "beat drill", "MC drill", "trap drill", "rima drill", "clipe drill", "lançamento drill", "cena grime", "beat grime", "MC grime", "barra grime", "rima pesada", "cypher grime", "street rap UK", "urban grime"], "Reggaeton & Música Latina": ["reggaeton", "música latina", "bachata", "salsa", "cumbia", "trap latino", "pop latino", "reggaetonero", "reggaetonera", "coreografia latina", "hit latino", "top latino", "chart latino", "colaboração latina", "artista latino", "clipe latino", "festa latina", "remix latino", "lançamento reggaeton"], "K-Pop": ["k-pop", "idol", "comeback", "MV", "fandom k-pop", "lightstick", "coreografia k-pop", "boy group", "girl group", "debut", "comeback stage", "chart k-pop", "show k-pop", "turnê k-pop", "coreografia viral", "fan meeting", "bias", "trainee", "award k-pop", "fancam"], "Afrobeat & Afropop": ["afrobeat", "afropop", "afrofusion", "artista africano", "música africana", "beat africano", "coreografia afro", "hit afro", "festival afrobeat", "colaboração afro", "lançamento afro", "cena afro", "afrobeats", "dance afro", "música nigeriana", "música ganense", "top afrobeat", "afro house", "afro trap", "remix afro"], "Música Regional": ["folk", "música regional", "música tradicional", "música andina", "música gaúcha", "musica caipira", "música de raiz", "folclore", "música indígena", "viola caipira", "maracatu", "dança tradicional", "carimbó", "boi-bumbá", "baião", "ciranda", "frevo", "vaneirão"], "Lançamentos de Singles & Álbuns": ["lançamento musical", "single novo", "álbum novo", "pré-save", "streaming lançamento", "debut álbum", "EP novo", "música inédita", "faixa nova", "música exclusiva", "clipe novo", "divulgação lançamento", "pré-lançamento", "audição", "premiere musical", "show de lançamento", "festa de lançamento", "promoção lançamento"], "Clipes em Alta (YouTube e TikTok)": ["clipe", "videoclipe", "lyric video", "vídeo oficial", "vídeo viral", "YouTube música", "TikTok música", "trend clipe", "top clipes", "clipe lançamento", "vídeo musical", "hit clipe", "audiovisual", "produção clipe", "making of clipe", "teaser clipe", "clipe indie", "clipe autoral", "cena clipe", "chart vídeo"], "Colaborações e Feats Relevantes": ["feat", "colaboração musical", "collab", "remix conjunto", "parceria musical", "feat internacional", "feat nacional", "artista convidado", "participação especial", "projeto musical conjunto", "collab pop", "collab rap", "collab eletrônica", "música colaborativa", "dupla musical", "collab rock", "collab trap", "colaboração inédita", "feat de sucesso"], "Festivais e Turnês": ["festival de música", "turnê", "tour mundial", "tour nacional", "lineup festival", "headliner", "palco principal", "ingressos festival", "ingressos turnê", "datas turnê", "agenda shows", "festival pop", "festival rock", "festival eletrônico", "festival indie", "evento musical", "mega show", "turnê internacional", "festival multicultural"], "Premiações Musicais": ["premiação musical", "grammy", "billboard music awards", "american music awards", "prêmio multishow", "vma", "brit awards", "latin grammy", "award show", "categoria musical", "indicação musical", "vencedor musical", "música premiada", "artista premiado", "show premiação", "performance premiação", "tapete vermelho", "troféu musical"], "Músicas Mais Ouvidas (Spotify, Apple Music, Deezer, etc.)": ["músicas mais ouvidas", "top 50", "top global", "top brasil", "chart streaming", "spotify charts", "apple music charts", "deezer charts", "ranking musical", "hit streaming", "música viral streaming", "top viral", "top semanal", "top diário", "top artistas", "estatísticas música", "mais tocadas", "mais reproduzidas", "top streaming"]}, "Cinema, TV & Streaming": {"Filmes": ["filme", "cinema", "estreia", "longa-metragem", "bilheteria", "sessão", "roteiro", "direção", "elenco", "ator", "atriz", "crítico de cinema", "festival", "cartaz", "trilha sonora", "produção", "streaming", "Oscar", "lançamento", "franquia"], "Séries": ["série", "temporada", "episódio", "streaming", "binge-watching", "elenco", "roteiro", "showrunner", "direção", "ator", "atriz", "crítica de série", "trailer", "lançamento", "plataforma", "minissérie", "produção", "ranking", "premiação", "fandom"], "Novelas": ["novela", "trama", "capítulo", "audiência", "reprise", "elenco", "ator", "atriz", "vilão", "mocinha", "casal", "novela das nove", "novela mexicana", "novela turca", "bastidores", "gravação", "lançamento", "streaming", "autor", "emissora"], "Reality Shows": ["reality show", "confinamento", "participante", "prova", "eliminação", "votação", "apresentador", "final", "temporada", "reality musical", "reality culinário", "reality de moda", "reality de namoro", "streaming", "transmissão ao vivo", "polêmica", "dinâmica", "audiência", "prêmio"], "Conteúdos Infantis & Animações": ["infantil", "animação", "desenho animado", "filme infantil", "série infantil", "animação 3D", "animação 2D", "personagens", "dublagem", "streaming infantil", "conteúdo educativo", "clássico infantil", "franquia infantil", "cinema infantil", "estúdio de animação", "longa animado", "curta animado", "lançamento infantil", "programa infantil"], "Telejornais": ["telejornal", "jornalismo", "âncora", "repórter", "notícia", "reportagem", "plantão", "manchete", "ao vivo", "entrevista", "cobertura especial", "breaking news", "jornal da manhã", "jornal da noite", "edição especial", "apuração", "emissora", "transmissão", "streaming de notícias", "bloco de notícias"], "Produções Nacionais para Streaming": ["streaming brasileiro", "produção nacional", "série brasileira", "filme brasileiro", "original nacional", "documentário brasileiro", "reality brasileiro", "plataforma streaming", "produção original", "elenco nacional", "diretor brasileiro", "lançamento nacional", "conteúdo nacional", "audiovisual brasileiro", "mercado audiovisual"], "Conteúdos Asiáticos (K-Dramas, Doramas, Cinema Coreano)": ["k-drama", "dorama", "cinema coreano", "série asiática", "filme asiático", "ator coreano", "atriz coreana", "drama coreano", "drama japonês", "drama chinês", "plataforma de streaming", "fandom asiático", "legendas", "romance asiático", "drama histórico", "elenco asiático", "diretor asiático", "cultura asiática", "k-movie", "trilha sonora asiática"], "Documentários & True Crime": ["documentário", "true crime", "investigação", "caso real", "crime", "série documental", "filme documental", "entrevista", "depoimento", "tribunal", "investigação policial", "documentário ambiental", "documentário social", "documentário histórico", "plataforma de streaming", "festival de documentários", "série investigativa"], "Estreias (Cinema e Streaming)": ["estreia", "lançamento", "pré-estreia", "cinema", "streaming", "novidade", "première", "evento de lançamento", "cartaz", "divulgação", "trailer", "teaser", "data de estreia", "estreia mundial", "estreia nacional", "filme novo", "série nova", "plataforma", "agenda cultural"], "Premiações & Festivais de Cinema/TV": ["premiação", "festival de cinema", "festival de TV", "Oscar", "Emmy", "Globo de Ouro", "Cannes", "Mostra de SP", "festival internacional", "prêmio de melhor filme", "prêmio de melhor série", "tapete vermelho", "júri", "exibição especial", "gala", "indicações", "vencedor", "homenagem", "premiação anual"], "Rankings & Mais Assistidos": ["ranking", "mais assistidos", "top 10", "audiência", "bilheteria", "produção popular", "chart de streaming", "lista de sucesso", "destaque semanal", "top séries", "top filmes", "recorde de visualizações", "streaming", "audiência TV", "relatório de audiência", "produção mais vista", "estatística de consumo", "plataforma"]}, "Games & Cultura Geek": {"Jogos Eletrônicos (PC, console, mobile)": ["jogos eletrônicos", "videogame", "PC gaming", "console", "mobile game", "game streaming", "gameplay", "eSports", "competição de games", "game pass", "atualização de jogo", "patch", "multiplayer", "singleplayer", "FPS", "RPG", "MOBA", "battle royale", "indie game", "desenvolvedora de jogos"], "Animes & Mangás": ["anime", "mangá", "otaku", "cosplay", "shonen", "shojo", "seinen", "dublagem", "legendado", "streaming de anime", "capítulo novo", "episódio novo", "filme anime", "evento anime", "feira de mangá", "mangaká", "abertura anime", "encerramento anime", "fandom anime", "cultura japonesa"], "Quadrinhos & HQs (Marvel, DC, independentes)": ["quadrinhos", "HQ", "comics", "Marvel", "DC", "super-herói", "graphic novel", "independente", "gibi", "tirinha", "publicação seriada", "lançamento HQ", "edição especial", "crossover", "vilão", "herói", "saga", "editora de quadrinhos", "roteirista", "ilustrador", "fandom HQ"], "Ficção Científica & Fantasia (Star Wars, Senhor dos Anéis, etc.)": ["ficção científica", "fantasia", "Star Wars", "Senhor dos Anéis", "Harry Potter", "universo expandido", "magia", "ficção espacial", "dragões", "planetas", "naves", "heróis", "vilões", "mundos imaginários", "saga", "trilogia", "franquia", "fandom", "mitologia", "space opera", "crossover"], "Cultura Cosplay": ["cosplay", "cosplayer", "evento cosplay", "competição cosplay", "traje cosplay", "personagem cosplay", "convenção geek", "CCXP", "WCS", "costura cosplay", "maquiagem cosplay", "props", "armadura cosplay", "desfile cosplay", "performance cosplay", "fandom cosplay", "concurso cosplay", "caracterização", "traje icônico", "cosplay artesanal"], "Cultura de Board Games & RPG de Mesa": ["board game", "RPG de mesa", "Dungeons & Dragons", "jogo de tabuleiro", "meeple", "cartas", "tabuleiro", "narrativa colaborativa", "campanha RPG", "dungeon master", "estratégia", "cooperativo", "competitivo", "party game", "jogo clássico", "expansão", "miniaturas", "rolagem de dados", "aventura"], "Comunidades & Fandoms Geek": ["fandom", "comunidade geek", "fan art", "fanfic", "fórum geek", "grupo de fãs", "convenção geek", "encontro de fãs", "tribo geek", "evento geek", "grupo online", "rede social geek", "cultura pop", "grupo temático", "cosplay group", "fan club", "comunidade online", "fandom ativo", "meet-up geek", "fã-clube oficial"], "Lançamentos de Games": ["lançamento de jogo", "pré-venda game", "game novo", "DLC", "expansão", "atualização", "patch de lançamento", "estreia game", "lançamento global", "pré-download", "estreia de franquia", "nova temporada", "game reveal", "trailer game", "teaser game", "game showcase", "lançamento indie", "lançamento AAA", "beta test"], "Eventos Geek & Games (CCXP, E3, Gamescom, etc.)": ["evento geek", "feira geek", "convenção geek", "CCXP", "E3", "Gamescom", "TGS", "conferência de games", "apresentação de jogos", "painel geek", "encontro de fãs", "cosplay em evento", "estande de games", "lançamento em evento", "festival geek", "indústria geek", "networking geek", "campeonato em evento", "exposição geek", "imprensa geek"]}, "Política, Economia & Sociedade": {"Eleições & Política Institucional": ["eleições", "política", "campanha", "candidato", "partido", "votação", "urna eletrônica", "debate", "plano de governo", "presidente", "governador", "prefeito", "vereador", "senador", "deputado", "coligação", "eleição municipal", "eleição estadual", "eleição federal", "resultado eleitoral"], "Economia & Mercado Financeiro": ["economia", "mercado financeiro", "bolsa de valores", "ações", "câmbio", "inflação", "PIB", "juros", "investimento", "mercado de capitais", "bitcoin", "criptomoeda", "ether", "stablecoin", "taxa de juros", "política monetária", "política fiscal", "dívida pública", "mercado global", "dólar"], "Movimentos Sociais & Protestos": ["movimento social", "protesto", "manifestação", "marcha", "greve", "ato público", "ativismo", "passeata", "ocupação", "reivindicação", "direitos civis", "direitos humanos", "igualdade", "luta social", "mobilização", "ato político", "concentração", "campanha social", "bandeira de luta", "militância"], "Segurança Pública": ["segurança pública", "policiamento", "operação policial", "crime", "criminalidade", "polícia militar", "polícia civil", "investigação", "prisão", "assalto", "furto", "roubo", "homicídio", "segurança viária", "blitz", "patrulha", "policiamento ostensivo", "policiamento comunitário", "violência urbana", "segurança cidadã"], "Cidadania & Direitos Humanos": ["cidadania", "direitos humanos", "igualdade", "diversidade", "inclusão", "direito civil", "liberdade de expressão", "liberdade religiosa", "direito político", "direito social", "ONU", "OEA", "campanhas de direitos", "ativismo de direitos", "políticas públicas", "justiça social", "proteção de minorias", "direitos LGBTQIA+", "direitos indígenas", "combate à discriminação"], "Saúde Pública": ["saúde pública", "SUS", "vacinação", "campanha de saúde", "prevenção", "hospital público", "posto de saúde", "programa de saúde", "medicina preventiva", "epidemia", "pandemia", "vigilância sanitária", "atendimento gratuito", "médico do SUS", "saúde coletiva", "políticas de saúde", "assistência médica", "diagnóstico", "enfermagem pública", "saúde comunitária"], "Cidades & Gestão Urbana": ["cidade", "gestão urbana", "urbanismo", "planejamento urbano", "transporte público", "mobilidade urbana", "habitação", "saneamento", "iluminação pública", "limpeza urbana", "revitalização urbana", "obras públicas", "infraestrutura urbana", "zoneamento", "trânsito", "transporte coletivo", "ciclovia", "calçada", "desenvolvimento urbano", "praça pública"], "Políticas de Sustentabilidade & ESG": ["sustentabilidade", "ESG", "responsabilidade social", "governança", "relatório de sustentabilidade", "meta ambiental", "empresa sustentável", "política ambiental", "projeto social corporativo", "diversidade", "inclusão", "governança corporativa", "energia limpa", "neutralidade de carbono", "economia circular", "investimento ESG", "ranking ESG", "compliance ESG", "certificação sustentável", "indicadores ESG"], "Relações Internacionais & Geopolítica": ["relações internacionais", "geopolítica", "diplomacia", "tratado", "acordo", "aliança", "conflito", "guerra", "paz", "ONU", "OTAN", "bloco econômico", "comércio exterior", "embaixada", "consulado", "sanção", "negociação internacional", "cúpula", "fórum internacional", "disputa territorial", "cooperação internacional"]}, "Ciência, Tecnologia & Inovação": {"Inteligência Artificial & Machine Learning": ["inteligência artificial", "IA", "machine learning", "aprendizado de máquina", "deep learning", "rede neural", "algoritmo", "visão computacional", "NLP", "processamento de linguagem natural", "chatbot", "assistente virtual", "automação inteligente", "predição", "modelo de IA", "treinamento de IA", "dados de treino", "inferência", "big data", "inteligência computacional"], "Espaço & Astronomia": ["espaço", "astronomia", "missão espacial", "telescópio", "observatório", "NASA", "ESA", "foguete", "lançamento espacial", "órbita", "planeta", "estrela", "galáxia", "buraco negro", "exoplaneta", "satélite", "estação espacial", "sonda", "asteroide", "cometa"], "Medicina & Avanços Científicos": ["medicina", "avanço científico", "pesquisa médica", "ensaio clínico", "tratamento inovador", "cirurgia robótica", "medicamento novo", "terapia genética", "vacina", "diagnóstico precoce", "prevenção", "cura", "estudo clínico", "hospital de pesquisa", "ciência médica", "biomedicina", "medicina regenerativa", "farmacologia", "biotecnologia médica"], "Gadgets & Equipamentos": ["gadget", "smartphone", "tablet", "notebook", "wearable", "smartwatch", "fone de ouvido", "drone", "câmera digital", "câmera profissional", "action cam", "dispositivo portátil", "lançamento de gadget", "review gadget", "tecnologia de consumo", "inovação de produto", "dispositivo inteligente", "tech device", "acessório tecnológico", "unboxing"], "Inovação Corporativa & Startups": ["inovação corporativa", "startup", "empreendedorismo", "venture capital", "investimento-anjo", "incubadora", "aceleradora", "produto inovador", "serviço disruptivo", "modelo de negócio inovador", "MVP", "pitch", "inovação aberta", "corporate venture", "prototipagem", "tecnologia emergente", "transformação digital", "growth hacking", "bootstrapping", "investimento semente"], "Energias Renováveis & Sustentabilidade Tecnológica": ["energia renovável", "energia solar", "energia eólica", "energia hidrelétrica", "biogás", "biomassa", "energia limpa", "painel solar", "turbina eólica", "hidrelétrica", "eficiência energética", "sustentabilidade tecnológica", "bateria sustentável", "armazenamento de energia", "green tech", "tecnologia limpa", "transição energética", "geração distribuída", "microgeração"], "Biotecnologia & Genética": ["biotecnologia", "genética", "DNA", "RNA", "CRISPR", "edição genética", "terapia genética", "engenharia genética", "biotecnologia agrícola", "biotecnologia médica", "clonagem", "genoma", "mapeamento genético", "organismo geneticamente modificado", "OGM", "célula-tronco", "bioengenharia", "biotecnologia industrial", "pesquisa genética", "estudo genético"], "Robótica & Automação": ["robótica", "automação", "robô industrial", "robô doméstico", "robô autônomo", "automação de processos", "automação inteligente", "drone industrial", "braço robótico", "linha de produção automatizada", "veículo autônomo", "robô humanoide", "IA em robótica", "controle remoto", "manipulação robótica", "sensores robóticos", "robô colaborativo", "robô de serviço", "tecnologia robótica"], "Criptomoedas & Blockchain (foco tecnológico, não econômico)": ["criptomoeda", "blockchain", "bitcoin", "ethereum", "token", "smart contract", "protocolo blockchain", "mineração", "segurança blockchain", "rede descentralizada", "DApp", "carteira digital", "DeFi", "camada 2", "interoperabilidade blockchain", "NFT", "stablecoin", "DAO", "proof of stake", "proof of work"], "Feiras & Conferências de Tecnologia": ["feira de tecnologia", "conferência tech", "CES", "Web Summit", "evento de inovação", "conferência de desenvolvedores", "keynote", "exposição tecnológica", "lançamento em evento", "networking tech", "meetup tecnológico", "painel de inovação", "hackathon", "congresso de tecnologia", "feira de startups", "apresentação de produto", "fórum tecnológico", "evento internacional"], "Patentes & Descobertas Científicas": ["patente", "descoberta científica", "registro de patente", "inovação patenteada", "invenção", "propriedade intelectual", "PI", "registro internacional", "patente tecnológica", "novidade científica", "publicação científica", "peer review", "inovação registrada", "tecnologia patenteada", "design patenteado", "patente industrial", "inventor", "inovação disruptiva", "patente global"]}, "Cultura Digital & Memes": {"Memes Virais": ["meme", "viral", "piada", "humor", "imagem engraçada", "vídeo engraçado", "template", "legenda engraçada", "trend meme", "internet meme", "cultura meme", "formato meme", "bordão", "reaction meme", "meme do momento", "desafio meme", "conteúdo engraçado", "paródia", "sátira"], "Fenômenos em Redes Sociais (comportamentos, desafios, hashtags que se espalham)": ["fenômeno digital", "challenge", "hashtag viral", "comportamento online", "trend", "rede social", "viralização", "campanha digital", "desafio online", "moda digital", "plataforma social", "engajamento", "conteúdo viral", "movimento online", "rede social popular", "meme challenge", "hashtag trend", "comportamento viral", "vídeo viral"], "Linguagem & Gírias da Internet": ["gíria", "internet slang", "abreviação", "bordão", "linguagem online", "expressão popular", "trend de linguagem", "meme textual", "frase viral", "slogan digital", "jargão online", "palavra popular", "internet trend", "bordão viral", "comunicação digital", "linguagem de rede", "frase engraçada", "expressão meme", "linguajar jovem"], "Estéticas & Formatos Visuais Populares (ex.: filtros, templates, estilos visuais)": ["estética digital", "filtro", "template", "estilo visual", "design viral", "trend estética", "moodboard digital", "look visual", "filtro de rede social", "efeito especial", "colagem digital", "design gráfico popular", "formato visual", "padrão viral", "template de meme", "montagem digital", "inspiração visual", "estilo de rede"], "Criadores Digitais & Personalidades Online": ["criador digital", "influenciador", "streamer", "tiktoker", "youtuber", "instagrammer", "podcaster", "perfil popular", "personalidade online", "conteúdo original", "criador de vídeo", "live streamer", "digital influencer", "criador de memes", "produtor digital", "vlogger", "apresentador online", "criador de nicho", "microinfluenciador"], "Comunidades & Subculturas Digitais (fóruns, fandoms não ligados a franquias, grupos de nicho)": ["comunidade digital", "subcultura online", "fórum", "subreddit", "grupo fechado", "fandom de nicho", "tribo digital", "grupo de rede social", "comunidade de interesse", "grupo temático", "comunidade fechada", "microcomunidade", "grupo privado", "cultura de fórum", "comunidade ativa", "rede de fãs"], "Interações Virais (duetos, stitches, reply chains, enquetes virais)": ["interação viral", "duet", "stitch", "reply chain", "enquete viral", "engajamento coletivo", "resposta criativa", "interação em vídeo", "formato interativo", "thread popular", "comentário viral", "challenge de interação", "vídeo colaborativo", "conteúdo conjunto", "engajamento social", "participação viral", "co-criação", "interação popular"], "Novas Plataformas & Funcionalidades de Redes Sociais": ["nova plataforma", "rede social nova", "aplicativo novo", "feature nova", "atualização de rede", "ferramenta social", "app emergente", "app viral", "função inédita", "beta feature", "rede social em alta", "plataforma emergente", "update de app", "teste de função", "inovação social", "app popular", "aplicativo de rede", "algoritmo"]}, "Moda, Estilo & Beleza": {"Tendências de Moda (estilos, peças e combinações em alta)": ["tendência de moda", "estilo em alta", "peça-chave", "combinação de roupas", "look do dia", "street style", "moda verão", "moda inverno", "coleção atual", "visual popular", "trend de moda", "look fashion", "roupa estilosa", "tendência global", "moda urbana", "fashion trend", "destaque de passarela", "visual influenciador"], "Fashion Weeks & Desfiles": ["fashion week", "desfile de moda", "passarela", "coleção nova", "lançamento de coleção", "marca de moda", "evento de moda", "SPFW", "Paris Fashion Week", "NYFW", "Milano Fashion Week", "estilista", "grife", "apresentação de coleção", "show de moda", "backstage de desfile", "desfile icônico"], "Beleza & Maquiagem": ["beleza", "maquiagem", "make", "tutorial de maquiagem", "produto de beleza", "lançamento de cosmético", "tendência de maquiagem", "influencer de beleza", "truques de maquiagem", "maquiagem artística", "maquiagem natural", "skincare com maquiagem", "paleta de sombras", "batom", "delineador", "blush", "iluminador", "base", "corretivo"], "Cabelo & Estética Capilar": ["cabelo", "penteado", "corte de cabelo", "cor de cabelo", "tintura", "mechas", "luzes", "cabelo cacheado", "cabelo liso", "cabelo ondulado", "escova", "chapinha", "babyliss", "trança", "coque", "rabo de cavalo", "hidratação capilar", "reconstrução capilar", "tratamento capilar", "tendência de cabelo"], "Acessórios & Calçados": ["acessórios", "calçados", "bolsa", "tênis", "sapato", "bota", "sandália", "mule", "chinelo", "carteira", "cinto", "chapéu", "boné", "brinco", "colar", "pulseira", "joia", "bijuteria", "óculos de sol", "acessório de moda", "calçado fashion", "lançamento de acessório"], "Moda Sustentável & Consumo Consciente": ["moda sustentável", "consumo consciente", "upcycling", "slow fashion", "marca sustentável", "tecido orgânico", "roupa reciclada", "coleção sustentável", "moda circular", "economia circular", "roupa ecológica", "moda ética", "tendência sustentável", "produção consciente", "roupa vegana", "certificação sustentável", "moda responsável", "impacto ambiental na moda", "reciclagem de roupas", "vestuário sustentável"], "Colaborações & Parcerias de Marcas": ["colaboração de marca", "parceria de moda", "co-branding", "coleção colaborativa", "parceria designer", "collab", "parceria criativa", "marca x marca", "marca x artista", "edição limitada", "lançamento colaborativo", "colaboração fashion", "parceria de grife", "co-criação", "parceria influencer", "parceria estratégica"], "Lançamentos & Novas Coleções": ["lançamento de coleção", "nova coleção", "coleção primavera", "coleção verão", "coleção outono", "coleção inverno", "coleção cápsula", "coleção limitada", "desfile de lançamento", "apresentação de coleção", "lookbook", "preview coleção", "linha de moda nova", "coleção fashion", "coleção inédita"], "Estéticas & Movimentos Visuais (ex.: Y2K, Barbiecore, Clean Girl)": ["estética visual", "Y2K", "Barbiecore", "Clean Girl", "e-girl", "cottagecore", "dark academia", "light academia", "moda vintage", "moda retrô", "estética urbana", "visual alternativo", "movimento estético", "estilo visual", "tendência estética", "subcultura de moda", "visual icônico", "estilo de época"]}, "Gastronomia & Bebidas": {"Receitas Culinárias": ["receita", "culinária", "prato", "preparo", "passo a passo", "ingredientes", "modo de preparo", "receita caseira", "receita gourmet", "receita saudável", "receita rápida", "sobremesa", "prato principal", "entrada", "aperitivo", "receita tradicional", "cozinha", "culinária brasileira", "culinária internacional", "dicas de cozinha"], "Restaurantes & Bares": ["restaurante", "bar", "abertura de restaurante", "cardápio", "menu", "chef", "prato especial", "drinque especial", "inauguração de bar", "bar novo", "comida fora de casa", "crítica gastronômica", "avaliação de restaurante", "gastronomia", "lista de bares", "lista de restaurantes", "evento gastronômico", "degustação", "happy hour"], "Cervejas & Chopes": ["cerveja", "chope", "cerveja artesanal", "cervejaria", "fábrica de cerveja", "festival de cerveja", "lançamento de cerveja", "degustação de cerveja", "mestre cervejeiro", "IPA", "lager", "stout", "pilsner", "cerveja brasileira", "cerveja importada", "harmonização", "evento cervejeiro", "growler", "torneira de chope", "copo de cerveja"], "Vinhos & Espumantes": ["vinho", "espumante", "vinícola", "degustação de vinho", "harmonização", "sommelier", "vinho tinto", "vinho branco", "vinho rosé", "champanhe", "prosecco", "lançamento de vinho", "evento de vinho", "garrafa de vinho", "rolha", "taça de vinho", "barril de vinho", "colheita de uva", "safra de vinho"], "Drinks & Destilados": ["drink", "destilado", "coquetel", "coquetelaria", "mixologia", "receita de drink", "bartender", "gin", "whisky", "vodka", "rum", "tequila", "cachaça", "licor", "lançamento de bebida", "evento de drinks", "harmonização de drinks", "drinque autoral", "drinque clássico", "shot", "garrafa de destilado"], "Gastronomia Popular": ["gastronomia popular", "comida de rua", "feira gastronômica", "prato típico", "comida regional", "receita tradicional", "culinária local", "comida caseira", "prato cultural", "especialidade regional", "receita de família", "comida popular", "mercado de rua", "barraca de comida", "festival popular", "gastronomia de bairro"], "Gastronomia Sustentável & Orgânica": ["gastronomia sustentável", "comida orgânica", "agricultura orgânica", "produção sustentável", "consumo consciente", "prato orgânico", "cultivo sustentável", "horta urbana", "produto orgânico", "certificação orgânica", "feira orgânica", "alimentação sustentável", "slow food", "comida local", "ingrediente sustentável", "produção ecológica", "restaurante sustentável"], "Culinária Internacional em Alta (ex.: coreana, japonesa, mexicana)": ["culinária internacional", "comida coreana", "comida japonesa", "comida mexicana", "prato internacional", "gastronomia estrangeira", "restaurante internacional", "comida tailandesa", "comida italiana", "cozinha francesa", "cozinha mediterrânea", "comida árabe", "prato típico estrangeiro", "chef internacional"], "Cultura do Café": ["café", "cafeteria", "barista", "método de preparo", "café espresso", "café filtrado", "café gelado", "cold brew", "grão de café", "torra de café", "degustação de café", "evento de café", "lançamento de café", "latte art", "cappuccino", "máquina de café", "xícara de café", "cultura cafeeira"], "Eventos Gastronômicos": ["evento gastronômico", "festival de comida", "festival de bebida", "feira gastronômica", "degustação", "concurso culinário", "campeonato de cozinha", "show cooking", "evento de chef", "evento temático", "festival internacional de gastronomia", "encontro de gastrônomos", "feira de produtores", "evento de harmonização"], "Novos Produtos & Sabores": ["novo produto", "novo sabor", "lançamento alimentício", "tendência gastronômica", "inovação em comida", "inovação em bebida", "sabor limitado", "edição especial", "produto gourmet", "produto artesanal", "novidade gastronômica", "lançamento de marca", "teste de sabor", "amostra de produto", "edição sazonal", "embalagem nova", "alimento inovador", "bebida inovadora"]}, "Turismo, Viagens & Lazer": {"Destinos Nacionais": ["destino nacional", "viagem Brasil", "turismo interno", "cidade brasileira", "capital brasileira", "cidade histórica", "praia brasileira", "serra brasileira", "turismo cultural Brasil", "ecoturismo Brasil", "parque nacional", "ponto turístico Brasil", "destino de férias Brasil", "roteiro nacional", "viagem interna"], "Destinos Internacionais": ["destino internacional", "viagem exterior", "turismo fora do Brasil", "cidade internacional", "capital estrangeira", "viagem internacional", "ponto turístico internacional", "praia internacional", "roteiro internacional", "turismo cultural fora do Brasil", "viagem ao exterior", "férias internacionais", "roteiro estrangeiro", "destino fora do país"], "Resorts & Hotéis": ["resort", "hotel", "hospedagem", "all inclusive", "hotel boutique", "rede hoteleira", "suíte", "quarto de hotel", "reserva de hotel", "diária de hotel", "pacote de resort", "hospedagem de luxo", "hospedagem de praia", "hospedagem de montanha", "hotel urbano", "hospedagem em resort", "serviço de quarto", "spa em hotel"], "Turismo de Aventura": ["turismo de aventura", "trilha", "escalada", "rapel", "rafting", "paraquedismo", "bungee jump", "esportes radicais", "aventura na natureza", "canyoning", "mergulho", "tirolesa", "turismo outdoor", "ecoturismo de aventura", "expedição", "aventura no Brasil", "aventura internacional"], "Praias & Ecoturismo": ["praia", "ecoturismo", "natureza", "parque nacional", "reserva ecológica", "turismo sustentável", "mar", "litoral", "trilha ecológica", "snorkeling", "mergulho", "surf", "praia deserta", "turismo verde", "turismo de natureza", "preservação ambiental", "paisagem natural", "viagem ecológica"], "Turismo Sustentável": ["turismo sustentável", "hospedagem ecológica", "viagem sustentável", "ecoturismo", "roteiro ecológico", "destino verde", "turismo consciente", "viagem de baixo impacto", "hotel sustentável", "certificação sustentável", "turismo regenerativo", "experiência sustentável"], "Experiências Únicas de Viagem": ["experiência de viagem", "passeio exclusivo", "vivência cultural", "experiência gastronômica", "atividade única", "tour personalizado", "atividade diferenciada", "turismo de experiência", "roteiro exclusivo", "imersão cultural", "atividade rara", "vivência inesquecível"], "Turismo Cultural & Histórico": ["turismo cultural", "turismo histórico", "museu", "sítio arqueológico", "centro histórico", "patrimônio cultural", "roteiro histórico", "destino cultural", "cidade histórica", "visita guiada", "evento cultural", "festival histórico", "monumento histórico", "tour cultural", "viagem cultural"], "Eventos & Festivais Turísticos": ["evento turístico", "festival de música", "festival gastronômico", "evento cultural", "carnaval", "festa popular", "feira turística", "festival internacional", "evento esportivo turístico", "festival tradicional", "comemoração turística", "atração de turistas"], "Novos Destinos & Atrações": ["novo destino", "nova atração", "rota turística", "lançamento de hotel", "novo parque", "nova trilha", "novo museu", "nova experiência", "atração recém-inaugurada", "novidade de viagem", "destino emergente", "atração popular recente", "lançamento turístico"], "Travel Hacks & Dicas de Viagem": ["dica de viagem", "travel hack", "economia em viagem", "planejamento de viagem", "truque de viagem", "transporte barato", "hospedagem econômica", "mala de viagem", "bagagem inteligente", "aplicativo de viagem", "roteiro otimizado", "economia de tempo em viagem", "viagem mais barata", "melhor época para viajar", "viagem eficiente"]}, "Calendário Cultural & Comercial": {"Datas Comemorativas (religiosas, culturais, sociais, institucionais, profissionais, globais)": [], "Festas Populares (Carnaval, Festa Junina, Oktoberfest, etc.)": [], "Datas Comerciais de Varejo (Black Friday, 11.11, Prime Day, etc.)": []}, "Clima, Meio Ambiente & Natureza": {"Eventos Climáticos & Desastres Naturais (enchentes, secas, ondas de calor, furacões, terremotos, queimadas)": ["evento climático", "desastre natural", "enchente", "seca", "onda de calor", "furacão", "ciclone", "tornado", "tempestade", "terremoto", "erupção vulcânica", "queimadas", "incêndio florestal", "inundação", "deslizamento", "catástrofe natural", "emergência climática"], "Previsão do Tempo & Mudanças Climáticas": ["previsão do tempo", "meteorologia", "clima", "mudança climática", "aquecimento global", "efeito estufa", "previsão meteorológica", "temperatura", "clima futuro", "previsão de chuva", "boletim meteorológico", "clima extremo", "variação climática", "relatório climático", "pesquisa climática"], "Água & Recursos Hídricos": ["água", "recurso hídrico", "abastecimento de água", "tratamento de água", "poluição da água", "preservação da água", "rios", "lagos", "mananciais", "gestão hídrica", "consumo de água", "economia de água", "escassez de água", "dessalinização", "crise hídrica", "conservação da água"], "Sustentabilidade & Preservação Ambiental": ["sustentabilidade", "preservação ambiental", "conservação", "reflorestamento", "reciclagem", "proteção ambiental", "gestão ambiental", "educação ambiental", "impacto ambiental", "preservação da natureza", "conservação de espécies", "prática sustentável", "uso consciente", "preservação de áreas verdes", "preservação de ecossistemas"], "Biodiversidade & Vida Selvagem": ["biodiversidade", "vida selvagem", "fauna", "flora", "animal silvestre", "planta nativa", "ecossistema", "preservação de espécies", "proteção de animais", "conservação da biodiversidade", "espécies ameaçadas", "habitat natural", "preservação de habitats", "conservação ambiental"], "Energias Renováveis": ["energia renovável", "energia solar", "energia eólica", "energia hidrelétrica", "biomassa", "energia geotérmica", "energia limpa", "energia sustentável", "geração de energia verde", "painel solar", "turbina eólica", "usina hidrelétrica", "inovação energética", "tecnologia limpa"], "Ações & Movimentos Ambientais": ["movimento ambiental", "campanha ambiental", "ONG ambiental", "ativismo ambiental", "mobilização verde", "protesto ambiental", "campanha de conscientização ambiental", "ação ecológica", "ação verde", "preservação do planeta", "manifestação ambiental", "evento ambiental"]}, "Saúde & Bem-Estar": {"Medicina & Prevenção": ["medicina preventiva", "prevenção de doenças", "check-up", "exame preventivo", "vacinação", "saúde preventiva", "diagnóstico precoce", "campanha de prevenção", "cuidado médico", "saúde pública preventiva", "rastreamento de doenças", "medicina familiar", "medicina comunitária", "cuidado preventivo"], "Saúde Mental": ["saúde mental", "psicologia", "terapia", "bem-estar mental", "equilíbrio emocional", "transtorno mental", "depressão", "ansiedade", "autocuidado", "mindfulness", "psicoterapia", "apoio psicológico", "saúde emocional", "saúde psicológica", "tratamento psicológico"], "Atividade Física": ["atividade física", "exercício físico", "academia", "treino", "caminhada", "corrida leve", "yoga", "pilates", "alongamento", "condicionamento físico", "funcional", "treino de força", "treino aeróbico", "bem-estar físico", "prática de exercício"], "Alimentação Saudável": ["alimentação saudável", "dieta equilibrada", "refeição nutritiva", "comida saudável", "prato saudável", "nutrição", "dieta balanceada", "receita saudável", "alimentação natural", "comida caseira saudável", "dieta mediterrânea", "alimentação funcional", "refeição balanceada"], "Hábitos Saudáveis": ["hábito saudável", "rotina saudável", "sono adequado", "higiene pessoal", "autocuidado", "estilo de vida saudável", "prática saudável", "hábito positivo", "saúde preventiva", "qualidade de vida", "rotina de bem-estar"], "Medicina Alternativa": ["medicina alternativa", "acupuntura", "homeopatia", "fitoterapia", "medicina integrativa", "tratamento natural", "prática alternativa", "terapia complementar", "medicina tradicional chinesa", "terapia holística", "prática milenar"], "Longevidade": ["longevidade", "envelhecimento saudável", "expectativa de vida", "saúde na terceira idade", "vitalidade", "qualidade de vida", "envelhecimento ativo", "bem-estar na velhice", "pesquisa sobre envelhecimento", "antienvelhecimento"], "Produtos & Tecnologias de Saúde": ["produto de saúde", "tecnologia de saúde", "wearable de saúde", "app de saúde", "dispositivo médico", "monitor de saúde", "smartwatch de saúde", "equipamento hospitalar", "inovação em saúde", "ferramenta de monitoramento"], "Eventos & Campanhas de Saúde": ["evento de saúde", "campanha de saúde", "feira de saúde", "campanha de prevenção", "evento médico", "mutirão de saúde", "evento comunitário de saúde", "ação social de saúde"]}, "Educação, Carreira & Negócios": {"Educação Básica": ["educação básica", "ensino fundamental", "ensino médio", "escola pública", "escola privada", "alfabetização", "educação infantil", "currículo escolar", "ensino primário", "ensino secundário", "professor de educação básica", "estudante do ensino médio", "política educacional básica"], "Ensino Superior": ["ensino superior", "universidade", "faculdade", "graduação", "pós-graduação", "mestrado", "doutorado", "curso universitário", "ranking universitário", "estudante universitário", "professor universitário", "política de ensino superior"], "Capacitação Profissional": ["capacitação profissional", "treinamento", "curso técnico", "workshop", "treinamento corporativo", "habilidades profissionais", "formação técnica", "certificação profissional", "desenvolvimento de carreira", "curso livre", "curso de capacitação"], "Mercado de Trabalho": ["mercado de trabalho", "emprego", "desemprego", "taxa de ocupação", "contratação", "demissão", "nova profissão", "pesquisa de mercado de trabalho", "oportunidade de emprego", "trabalho remoto", "tendência profissional"], "Empreendedorismo": ["empreendedorismo", "startup", "pequeno negócio", "negócio próprio", "criação de empresa", "gestão de negócio próprio", "história de empreendedor", "inovação empreendedora", "empreendimento", "fundador", "empresário iniciante"], "Gestão & Liderança": ["gestão", "liderança", "administração", "líder de equipe", "gestão empresarial", "desenvolvimento de liderança", "gestão de projetos", "liderança corporativa", "coaching executivo", "técnicas de liderança", "gestão de equipes"], "Eventos de Negócios": ["evento de negócios", "feira empresarial", "conferência de negócios", "fórum empresarial", "networking de negócios", "encontro empresarial", "evento corporativo", "evento econômico", "seminário de negócios"], "Rankings & Premiações": ["ranking", "premiação", "prêmio empresarial", "prêmio acadêmico", "reconhecimento de mercado", "lista de melhores empresas", "ranking de universidades", "prêmio de inovação", "premiação de liderança"]}, "Arte & Patrimônio Cultural": {"Artes Visuais": ["artes visuais", "pintura", "escultura", "fotografia", "instalação artística", "arte contemporânea", "arte clássica", "obra de arte", "galeria de arte", "exposição de artes visuais", "artista visual"], "Arte Urbana": ["arte urbana", "grafite", "mural", "intervenção urbana", "street art", "arte de rua", "artista urbano", "arte pública", "instalação urbana"], "Livros & Narrativas Literárias": ["livro", "narrativa literária", "romance", "conto", "poesia", "audiolivro", "literatura", "autor", "lançamento de livro", "feira literária", "festival literário"], "Patrimônio Histórico & Arquitetônico": ["patrimônio histórico", "arquitetura histórica", "monumento", "prédio histórico", "centro histórico", "preservação patrimonial", "restauro", "patrimônio cultural", "patrimônio da humanidade"], "Museus & Exposições": ["museu", "exposição", "galeria", "mostra cultural", "centro cultural", "exposição temporária", "exposição permanente", "museu de arte", "museu de ciência", "museu de história", "masp", "mis", "mam"], "Festivais & Bienais de Arte": ["festival de arte", "bienal de arte", "feira de arte", "evento artístico", "encontro de artistas", "exposição coletiva", "evento cultural de artes visuais", "feiras de arte", "art basel", "bienal de veneza"], "Artesanato & Cultura Popular": ["artesanato", "cultura popular", "feira de artesanato", "técnica artesanal", "arte tradicional", "festa cultural", "produção manual", "arte popular"], "Arte Digital & NFTs": ["arte digital", "NFT", "token não fungível", "ilustração digital", "arte em realidade virtual", "obra digital", "arte tecnológica", "criptoarte"]}, "Marketing, Publicidade & Comunicação": {"Campanhas em Destaque": ["campanha publicitária", "case de marketing", "publicidade em destaque", "anúncio de impacto", "campanha viral", "campanha premiada", "campanha nacional", "campanha internacional", "lançamento publicitário", "ação de marca"], "Executivos de Marketing & Agências": ["executivo de marketing", "CMO", "diretor de criação", "CEO de agência", "liderança de marketing", "movimentação de executivos", "contratação de líder", "liderança criativa", "mudança de gestão", "alta liderança"], "Prêmios & Reconhecimentos do Setor": ["prêmio de publicidade", "premiação de marketing", "Cannes Lions", "Effie Awards", "Profissionais do Ano", "prêmio criativo", "festival de publicidade", "premiação internacional", "reconhecimento criativo", "prêmio de agência"], "Inovação & Tendências em Marketing": ["tendência de marketing", "inovação publicitária", "formato criativo", "nova tecnologia de marketing", "marketing interativo", "estratégia inovadora", "experiência imersiva", "realidade aumentada em marketing", "marketing experimental"], "Uso de Inteligência Artificial em Marketing": ["inteligência artificial", "IA no marketing", "automação de marketing", "personalização por IA", "criação assistida por IA", "machine learning no marketing", "marketing automatizado", "segmentação com IA", "conteúdo gerado por IA"], "Agências & Holdings em Destaque": ["agência de publicidade", "holding publicitária", "fusão de agência", "aquisição de agência", "expansão de agência", "ranking de agências", "grupo publicitário", "agência destaque"], "Estudos & Pesquisas de Mercado": ["pesquisa de mercado", "estudo de consumo", "relatório de mídia", "dados de audiência", "insight de consumidor", "análise de mercado", "relatório publicitário", "tendência de consumo"], "Marketing de Influência & Parcerias com Criadores": ["marketing de influência", "influenciador", "creator", "parceria de marca", "campanha com influenciador", "ação com creator", "conteúdo patrocinado", "creator marketing", "campanha digital"], "Ações de Responsabilidade Social de Marcas": ["responsabilidade social", "ESG", "diversidade", "inclusão", "sustentabilidade de marca", "campanha social", "ação ambiental", "projeto social de marca", "marketing com propósito"], "Contas em Movimento": ["conta publicitária", "mudança de agência", "concorrência de conta", "novo cliente de agência", "troca de conta", "pitch de agência", "conquista de cliente", "perda de cliente"]}};
+
+const DATA = [
+  {name:"Esportes",topics:["Futebol","Vôlei","Basquete (NBA, NBB)","MMA (UFC, eventos nacionais)","Boxe","Corrida de Rua & Maratonas","Skate","Surfe","Fisiculturismo","Esportes a Motor (F1, Stock Car, MotoGP, Rally)","Tênis","Ciclismo de Estrada & Mountain Bike","CrossFit","Esportes de Areia (futevôlei, beach tenis, vôlei de praia)","Esportes de Endurance (triatlo, ultramaratonas)","NFL (Futebol Americano)","Esportes Olímpicos","Esportes Paralímpicos","Outras modalidades"]},
+  {name:"Música",topics:["Sertanejo","Funk","Pagode & Samba","Pop Nacional","Pop Internacional","Trap & Rap","MPB","Música Eletrônica (EDM, House, Techno)","Rock Nacional","Rock Internacional","Forró & Piseiro","Indie & Alternativo","Drill & Grime","Reggaeton & Música Latina","K-Pop","Afrobeat & Afropop","Música Regional","Lançamentos de Singles & Álbuns","Clipes em Alta (YouTube e TikTok)","Colaborações e Feats Relevantes","Festivais e Turnês","Premiações Musicais","Músicas Mais Ouvidas (Spotify, Apple Music, Deezer, etc.)"]},
+  {name:"Cinema, TV & Streaming",topics:["Filmes","Séries","Novelas","Reality Shows","Conteúdos Infantis & Animações","Telejornais","Produções Nacionais para Streaming","Conteúdos Asiáticos (K-Dramas, Doramas, Cinema Coreano)","Documentários & True Crime","Estreias (Cinema e Streaming)","Premiações & Festivais de Cinema/TV","Rankings & Mais Assistidos"]},
+  {name:"Games & Cultura Geek",topics:["Jogos Eletrônicos (PC, console, mobile)","Animes & Mangás","Quadrinhos & HQs (Marvel, DC, independentes)","Ficção Científica & Fantasia (Star Wars, Senhor dos Anéis, etc.)","Cultura Cosplay","Cultura de Board Games & RPG de Mesa","Comunidades & Fandoms Geek","Lançamentos de Games","Eventos Geek & Games (CCXP, E3, Gamescom, etc.)"]},
+  {name:"Moda, Estilo & Beleza",topics:["Tendências de Moda (estilos, peças e combinações em alta)","Fashion Weeks & Desfiles","Beleza & Maquiagem","Cabelo & Estética Capilar","Acessórios & Calçados","Moda Sustentável & Consumo Consciente","Colaborações & Parcerias de Marcas","Lançamentos & Novas Coleções","Estéticas & Movimentos Visuais (ex.: Y2K, Barbiecore, Clean Girl)"]},
+  {name:"Política, Economia & Sociedade",topics:["Eleições & Política Institucional","Economia & Mercado Financeiro","Movimentos Sociais & Protestos","Segurança Pública","Cidadania & Direitos Humanos","Saúde Pública","Cidades & Gestão Urbana","Políticas de Sustentabilidade & ESG","Relações Internacionais & Geopolítica"]},
+  {name:"Ciência, Tecnologia & Inovação",topics:["Inteligência Artificial & Machine Learning","Espaço & Astronomia","Medicina & Avanços Científicos","Gadgets & Equipamentos","Inovação Corporativa & Startups","Energias Renováveis & Sustentabilidade Tecnológica","Biotecnologia & Genética","Robótica & Automação","Criptomoedas & Blockchain (foco tecnológico, não econômico)","Feiras & Conferências de Tecnologia","Patentes & Descobertas Científicas"]},
+  {name:"Cultura Digital & Memes",topics:["Memes Virais","Fenômenos em Redes Sociais (comportamentos, desafios, hashtags que se espalham)","Linguagem & Gírias da Internet","Estéticas & Formatos Visuais Populares (ex.: filtros, templates, estilos visuais)","Criadores Digitais & Personalidades Online","Comunidades & Subculturas Digitais (fóruns, fandoms não ligados a franquias, grupos de nicho)","Interações Virais (duetos, stitches, reply chains, enquetes virais)","Novas Plataformas & Funcionalidades de Redes Sociais"]},
+  {name:"Gastronomia & Bebidas",topics:["Receitas Culinárias","Restaurantes & Bares","Cervejas & Chopes","Vinhos & Espumantes","Drinks & Destilados","Gastronomia Popular","Gastronomia Sustentável & Orgânica","Culinária Internacional em Alta (ex.: coreana, japonesa, mexicana)","Cultura do Café","Eventos Gastronômicos","Novos Produtos & Sabores"]},
+  {name:"Turismo, Viagens & Lazer",topics:["Destinos Nacionais","Destinos Internacionais","Resorts & Hotéis","Turismo de Aventura","Praias & Ecoturismo","Turismo Sustentável","Experiências Únicas de Viagem","Turismo Cultural & Histórico","Eventos & Festivais Turísticos","Novos Destinos & Atrações","Travel Hacks & Dicas de Viagem"]},
+  {name:"Calendário Cultural & Comercial",topics:["Datas Comemorativas (religiosas, culturais, sociais, institucionais, profissionais, globais)","Festas Populares (Carnaval, Festa Junina, Oktoberfest, etc.)","Datas Comerciais de Varejo (Black Friday, 11.11, Prime Day, etc.)"]},
+  {name:"Clima, Meio Ambiente & Natureza",topics:["Eventos Climáticos & Desastres Naturais (enchentes, secas, ondas de calor, furacões, terremotos, queimadas)","Previsão do Tempo & Mudanças Climáticas","Água & Recursos Hídricos","Sustentabilidade & Preservação Ambiental","Biodiversidade & Vida Selvagem","Energias Renováveis","Ações & Movimentos Ambientais"]},
+  {name:"Saúde & Bem-Estar",topics:["Medicina & Prevenção","Saúde Mental","Atividade Física","Alimentação Saudável","Hábitos Saudáveis","Medicina Alternativa","Longevidade","Produtos & Tecnologias de Saúde","Eventos & Campanhas de Saúde"]},
+  {name:"Educação, Carreira & Negócios",topics:["Educação Básica","Ensino Superior","Capacitação Profissional","Mercado de Trabalho","Empreendedorismo","Gestão & Liderança","Eventos de Negócios","Rankings & Premiações"]},
+  {name:"Arte & Patrimônio Cultural",topics:["Artes Visuais","Arte Urbana","Livros & Narrativas Literárias","Patrimônio Histórico & Arquitetônico","Museus & Exposições","Festivais & Bienais de Arte","Artesanato & Cultura Popular","Arte Digital & NFTs"]},
+  {name:"Marketing, Publicidade & Comunicação",topics:["Campanhas em Destaque","Executivos de Marketing & Agências","Prêmios & Reconhecimentos do Setor","Inovação & Tendências em Marketing","Uso de Inteligência Artificial em Marketing","Agências & Holdings em Destaque","Estudos & Pesquisas de Mercado","Marketing de Influência & Parcerias com Criadores","Ações de Responsabilidade Social de Marcas","Contas em Movimento"]}
+];
+
+const N = 16;
+
+// Two-ring layout computed offline — 0 collisions, all in-bounds
+// Inner ring (r~170): indices 1,0,12,5,10,13,14,2
+// Outer ring (r~280): indices 11,8,6,4,15,3,7,9
+// Pre-computed angles (radians) and orbit radii per node
+const NODE_ANGLES = [-0.7854,-1.5708,3.9270,2.7489,1.1781,0.7854,0.3927,3.5343,-0.3927,4.3197,1.5708,-1.1781,0.0000,2.3562,3.1416,1.9635];
+const NODE_ORBITS = [170,170,170,280,280,170,280,280,280,280,170,280,170,170,170,280];
+
+// Node pixel radius (computed from text metrics, smaller font for projector clarity)
+const NODE_RADII = [44,39,57,65,63,56,61,65,60,68,56,58,50,56,56,63];
+
+const CHAR_W = 6.0, LINE_H = 13, MAX_TW = 100;
+
+const mapArea = document.getElementById('mapArea');
+const C = document.getElementById('mm');
+const CTX = C.getContext('2d');
+const DPR = window.devicePixelRatio || 1;
+let W, H, cx, cy, SCALE;
+let selected = null, hovered = null;
+
+function nodePos(i) {
+  const a = NODE_ANGLES[i];
+  const or = NODE_ORBITS[i] * SCALE;
+  return { x: cx + or * Math.cos(a), y: cy + or * Math.sin(a) };
+}
+
+function nodeR(i) { return Math.round(NODE_RADII[i] * SCALE); }
+
+function wrapWords(name, maxW) {
+  const words = name.split(' ');
+  const lines = []; let line = '';
+  for (const w of words) {
+    const t = line ? line + ' ' + w : w;
+    if (CTX.measureText(t).width > maxW && line) { lines.push(line); line = w; }
+    else line = t;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function resize() {
+  W = mapArea.clientWidth; H = mapArea.clientHeight;
+  C.width = W * DPR; C.height = H * DPR;
+  C.style.width = W + 'px'; C.style.height = H + 'px';
+  CTX.scale(DPR, DPR);
+  // scale so layout computed at 940x660 fits the actual canvas
+  SCALE = Math.min(W / 940, H / 660) * 0.98;
+  // center with a slight upward offset to give bottom nodes more room
+  cx = W / 2;
+  cy = H / 2 - H * 0.02;
+  draw();
+}
+
+function draw() {
+  CTX.clearRect(0, 0, W, H);
+
+  // subtle two-ring reference circles (dashed)
+  CTX.save();
+  CTX.setLineDash([3, 9]);
+  CTX.lineWidth = 0.6;
+
+  CTX.strokeStyle = '#EAEAE6';
+  CTX.beginPath();
+  CTX.arc(cx, cy, 170 * SCALE, 0, Math.PI * 2);
+  CTX.stroke();
+
+  CTX.beginPath();
+  CTX.arc(cx, cy, 280 * SCALE, 0, Math.PI * 2);
+  CTX.stroke();
+  CTX.restore();
+
+  // spokes from center to each node
+  const CENTER_R = 32 * SCALE;
+  DATA.forEach((_, i) => {
+    const p = nodePos(i);
+    const r = nodeR(i);
+    const isSel = selected === i;
+    const dx = p.x - cx, dy = p.y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const sx = cx + dx * CENTER_R / dist;
+    const sy = cy + dy * CENTER_R / dist;
+    const ex = p.x - dx * r / dist;
+    const ey = p.y - dy * r / dist;
+    CTX.beginPath();
+    CTX.moveTo(sx, sy);
+    CTX.lineTo(ex, ey);
+    CTX.strokeStyle = isSel ? '#0D0D0D' : '#E8E8E4';
+    CTX.lineWidth = isSel ? 1.2 : 0.5;
+    CTX.stroke();
+  });
+
+  // nodes
+  DATA.forEach((d, i) => {
+    const p = nodePos(i);
+    const r = nodeR(i);
+    const isSel = selected === i;
+    const isHov = hovered === i;
+
+    CTX.beginPath();
+    CTX.arc(p.x, p.y, r, 0, Math.PI * 2);
+
+    if (isSel) {
+      CTX.fillStyle = '#0D0D0D';
+      CTX.fill();
+      CTX.strokeStyle = '#EBFF00';
+      CTX.lineWidth = 2.5;
+      CTX.stroke();
+    } else if (isHov) {
+      CTX.fillStyle = '#1A1A1A';
+      CTX.fill();
+    } else {
+      CTX.fillStyle = '#F8F8F6';
+      CTX.fill();
+      CTX.strokeStyle = '#D4D4D0';
+      CTX.lineWidth = 0.8;
+      CTX.stroke();
+    }
+
+    // Label
+    const fs = Math.max(10, Math.round(11.5 * SCALE));
+    const lh = Math.max(12, Math.round(14 * SCALE));
+    CTX.font = `${isSel || isHov ? '500' : '400'} ${fs}px 'EB Garamond',serif`;
+    CTX.textAlign = 'center';
+    CTX.textBaseline = 'middle';
+    CTX.fillStyle = (isSel || isHov) ? '#FFFFFF' : '#0D0D0D';
+
+    const maxTW = r * 1.65;
+    const lines = wrapWords(d.name, maxTW);
+    const totalH = (lines.length - 1) * lh;
+    const startY = p.y - totalH / 2 - 5;
+    lines.forEach((ln, li) => CTX.fillText(ln, p.x, startY + li * lh));
+
+    // topic count
+    const cfs = Math.max(8, Math.round(9 * SCALE));
+    CTX.font = `300 ${cfs}px 'DM Mono',monospace`;
+    CTX.fillStyle = isSel ? '#EBFF00' : (isHov ? 'rgba(255,255,255,0.6)' : '#BBBBB8');
+    CTX.fillText(d.topics.length + ' tópicos', p.x, p.y + r - 12 * SCALE);
+  });
+
+  // center node
+  CTX.beginPath();
+  CTX.arc(cx, cy, CENTER_R, 0, Math.PI * 2);
+  CTX.fillStyle = '#0D0D0D';
+  CTX.fill();
+
+  const cfs2 = Math.max(9, Math.round(11 * SCALE));
+  CTX.font = `italic ${cfs2}px 'EB Garamond',serif`;
+  CTX.fillStyle = '#EBFF00';
+  CTX.textAlign = 'center';
+  CTX.textBaseline = 'middle';
+  CTX.fillText('culture', cx, cy - 6 * SCALE);
+  CTX.fillText('monitor', cx, cy + 6 * SCALE);
+}
+
+function hitTest(mx, my) {
+  for (let i = 0; i < N; i++) {
+    const p = nodePos(i);
+    const r = nodeR(i);
+    if ((mx - p.x) ** 2 + (my - p.y) ** 2 <= r * r) return i;
+  }
+  return null;
+}
+
+C.addEventListener('mousemove', e => {
+  const rect = C.getBoundingClientRect();
+  const h = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+  if (h !== hovered) { hovered = h; draw(); }
+  C.style.cursor = h !== null ? 'pointer' : 'default';
+});
+C.addEventListener('mouseleave', () => { hovered = null; draw(); });
+C.addEventListener('click', e => {
+  const rect = C.getBoundingClientRect();
+  const h = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+  if (h !== null) openTerritory(h);
+});
+
+// Panel
+const viewEmpty = document.getElementById('viewEmpty');
+const viewTopics = document.getElementById('viewTopics');
+const viewKeywords = document.getElementById('viewKeywords');
+const hint = document.getElementById('hint');
+
+function showView(v) {
+  viewEmpty.style.display = v === 'empty' ? '' : 'none';
+  viewTopics.classList.toggle('active', v === 'topics');
+  viewKeywords.classList.toggle('active', v === 'keywords');
+}
+
+function openTerritory(i) {
+  selected = i;
+  hint.classList.add('hidden');
+  updateNavLink();
+  const d = DATA[i];
+  document.getElementById('tTag').textContent = 'Território ' + String(i+1).padStart(2,'0') + ' de ' + N;
+  document.getElementById('tName').textContent = d.name;
+  document.getElementById('tBadge').textContent = d.topics.length;
+  const list = document.getElementById('topicList');
+  list.innerHTML = d.topics.map((t,ti) =>
+    `<div class="topic-row" data-terr="${i}" data-topic="${ti}">
+       <span class="t-num">${String(ti+1).padStart(2,'0')}</span>
+       <span class="t-name">${t}</span>
+       <span class="topic-arr">→</span>
+     </div>`
+  ).join('');
+  list.querySelectorAll('.topic-row').forEach(row => {
+    row.addEventListener('click', () => openKeywords(+row.dataset.terr, +row.dataset.topic));
+  });
+  list.scrollTop = 0;
+  showView('topics');
+  draw();
+}
+
+function openKeywords(ti, ki) {
+  const terr = DATA[ti];
+  const topicName = terr.topics[ki];
+  document.getElementById('kTag').textContent = 'Palavras-chave · tópico ' + String(ki+1).padStart(2,'0');
+  document.getElementById('kName').textContent = topicName;
+  document.getElementById('kTerritory').textContent = terr.name;
+  const terrKw = KW_DATA[terr.name] || {};
+  let kws = terrKw[topicName];
+  if (!kws) {
+    const key = Object.keys(terrKw).find(k => k.slice(0,14) === topicName.slice(0,14));
+    kws = key ? terrKw[key] : [];
+  }
+  const body = document.getElementById('kwBody');
+  body.innerHTML = kws && kws.length
+    ? kws.map(k => `<span class="kw-chip">${k}</span>`).join('')
+    : '<span class="kw-empty">Palavras-chave não mapeadas para este tópico.</span>';
+  showView('keywords');
+}
+
+document.getElementById('closeTopics').addEventListener('click', () => { selected=null; hint.classList.remove('hidden'); showView('empty'); updateNavLink(); draw(); });
+document.getElementById('closeKw').addEventListener('click', () => { selected=null; hint.classList.remove('hidden'); showView('empty'); updateNavLink(); draw(); });
+document.getElementById('backBtn').addEventListener('click', () => showView('topics'));
+document.getElementById('navPrev').addEventListener('click', () => { if(selected!==null) openTerritory((selected-1+N)%N); });
+document.getElementById('navNext').addEventListener('click', () => { if(selected!==null) openTerritory((selected+1)%N); });
+document.addEventListener('keydown', e => {
+  if(e.key==='Escape') { if(viewKeywords.classList.contains('active')) showView('topics'); else if(viewTopics.classList.contains('active')) { selected=null; hint.classList.remove('hidden'); showView('empty'); draw(); } }
+  if(e.key==='ArrowRight' && viewTopics.classList.contains('active') && selected!==null) openTerritory((selected+1)%N);
+  if(e.key==='ArrowLeft' && viewTopics.classList.contains('active') && selected!==null) openTerritory((selected-1+N)%N);
+});
+
+showView('empty');
+
+// ── Deep-link: open territory from URL hash ──
+// e.g. culture_monitor_mindmap.html#Esportes
+function openFromHash() {
+  const hash = decodeURIComponent(location.hash.slice(1));
+  if (!hash) return;
+  const idx = DATA.findIndex(d => d.name === hash);
+  if (idx !== -1) openTerritory(idx);
+}
+window.addEventListener('hashchange', openFromHash);
+
+new ResizeObserver(() => resize()).observe(mapArea);
+resize();
+requestAnimationFrame(() => requestAnimationFrame(openFromHash));
+
+// Keep nav button in sync with selected territory
+function updateNavLink() {
+  const a = document.getElementById('navToContextos');
+  if (!a) return;
+  if (selected !== null) {
+    const terrName = encodeURIComponent(DATA[selected].name);
+    a.href = `culture_monitor_contextos.html#terr-${terrName}`;
+    a.title = `Ver contextos de ${DATA[selected].name}`;
+  } else {
+    a.href = 'culture_monitor_contextos.html';
+    a.title = '';
+  }
+}
+</script>
+</body>
+</html>
